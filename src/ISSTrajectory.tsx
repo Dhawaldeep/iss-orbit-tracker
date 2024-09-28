@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Box, Button, Checkbox, Heading, Stack } from '@chakra-ui/react';
-import { PlusSquareIcon } from '@chakra-ui/icons';
+import { Box, Button, Heading, Stack } from '@chakra-ui/react';
 import { Cartesian3, Entity, IonResource, JulianDate, SampledPositionProperty, TimeInterval, TimeIntervalCollection, Viewer } from 'cesium';
 
 import { issTrajectory } from './assets/iss_trajectory';
 
 export default function ISSTrajectory({ viewer }: { viewer: Viewer }) {
   const [issEntity, setIssEntity] = useState<Entity>();
+  const [track, setTrack] = useState(false);
 
   const load3DModel = useCallback(async (viewer: Viewer, positionProperty: SampledPositionProperty, { start, stop }: { start: JulianDate; stop: JulianDate; }) => {
     const resource = await IonResource.fromAssetId(2729062);
@@ -65,26 +65,26 @@ export default function ISSTrajectory({ viewer }: { viewer: Viewer }) {
   }, [viewer, load3DModel]);
 
   useEffect(() => {
-    console.log(issEntity);
-  }, [issEntity]);
+    if (!issEntity) return;
+    if (track) {
+      viewer.flyTo(issEntity).then(() => {
+        viewer.trackedEntity = issEntity;
+      })
+    } else {
+      viewer.trackedEntity = undefined;
+      viewer.camera.flyHome();
+    }
+  }, [issEntity, track, viewer]);
 
-  return <Box mt={"5px"}>
-    <Heading size="md">International Space Station</Heading>
+  return <Box position={'absolute'} top='60px' right='5px' boxShadow='xs' p='6' rounded='md' bg='white' minWidth='300px'>
+    <Heading size="md" mb='10px'>International Space Station</Heading>
     <Stack>
-      <Checkbox icon={<PlusSquareIcon />} colorScheme='orange' onChange={(ev) => {
-        if (ev.target.checked) {
-          viewer.trackedEntity = issEntity;
-        } else {
-          viewer.trackedEntity = undefined;
-        }
-      }}>Track</Checkbox>
-      <Button size='sm' bg='black' color='white' _hover={{ bg: 'gray.700' }} onClick={() => {
+      <Button size='sm' isDisabled={!issEntity} bg={track ? 'red.500' : 'black'} color={'white'} _hover={{ bg: track ? 'red.400' : 'gray.700' }} onClick={() => {
         if (issEntity) {
-          viewer.trackedEntity = undefined;
-          viewer.trackedEntity = issEntity;
+          setTrack(val => !val);
         };
       }}>
-        Focus
+        {track ? 'Remove Focus' : 'Focus'}
       </Button>
     </Stack>
   </Box>

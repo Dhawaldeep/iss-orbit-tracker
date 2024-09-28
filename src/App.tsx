@@ -4,6 +4,7 @@ import { SkyAtmosphere, Viewer } from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 import useGoogleEarth from './hooks/useGoogleEarth';
+import ISSTrajectory from './ISSTrajectory';
 
 function App() {
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -32,7 +33,14 @@ function App() {
   useEffect(() => {
   }, [googleEarthTileset]);
 
-  return <div className='viewer' ref={viewerRef}></div>
+  return <>
+    <div className='viewer' ref={viewerRef}></div>
+
+    {
+      viewer &&
+      <ISSTrajectory viewer={viewer} />
+    }
+  </>
 }
 
 export default App
