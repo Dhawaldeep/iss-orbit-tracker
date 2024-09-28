@@ -3,10 +3,16 @@ import { Box, Button, Heading, Stack } from '@chakra-ui/react';
 import { Cartesian3, Entity, IonResource, JulianDate, SampledPositionProperty, TimeInterval, TimeIntervalCollection, Viewer } from 'cesium';
 
 import { issTrajectory } from './assets/iss_trajectory';
+import useApiPolling from './hooks/useAPIPolling';
 
 export default function ISSTrajectory({ viewer }: { viewer: Viewer }) {
   const [issEntity, setIssEntity] = useState<Entity>();
   const [track, setTrack] = useState(false);
+  const { data, loading, error } = useApiPolling('https://api.wheretheiss.at/v1/satellites/25544', 10000);
+
+  useEffect(() => {
+    console.log(data, error, loading);
+  }, [data, error, loading]);
 
   const load3DModel = useCallback(async (viewer: Viewer, positionProperty: SampledPositionProperty, { start, stop }: { start: JulianDate; stop: JulianDate; }) => {
     const resource = await IonResource.fromAssetId(2729062);
