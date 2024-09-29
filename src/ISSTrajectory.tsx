@@ -1,24 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Box, Button, Heading, Stack } from '@chakra-ui/react';
-import { Cartesian3, Entity, IonResource, JulianDate, SampledPositionProperty, TimeInterval, TimeIntervalCollection, Viewer } from 'cesium';
+import { Cartesian3, Color, DistanceDisplayCondition, Entity, IonResource, JulianDate, SampledPositionProperty, TimeInterval, TimeIntervalCollection, Viewer } from 'cesium';
 
-import { issTrajectory } from './assets/iss_trajectory';
+// import { issTrajectory } from './assets/iss_trajectory';
 import useApiPolling from './hooks/useAPIPolling';
 
 export default function ISSTrajectory({ viewer }: { viewer: Viewer }) {
   const [issEntity, setIssEntity] = useState<Entity>();
   const [track, setTrack] = useState(false);
-  const { data, loading, error } = useApiPolling('https://api.wheretheiss.at/v1/satellites/25544', 10000);
+  const [positionProperty] = useState(new SampledPositionProperty());
 
-  useEffect(() => {
-    console.log(data, error, loading);
-  }, [data, error, loading]);
+  const { data, loading, error } = useApiPolling('https://api.wheretheiss.at/v1/satellites/25544', 5000);
 
-  const load3DModel = useCallback(async (viewer: Viewer, positionProperty: SampledPositionProperty, { start, stop }: { start: JulianDate; stop: JulianDate; }) => {
+  const load3DModel = useCallback(async (viewer: Viewer, positionProperty: SampledPositionProperty,
+    // { start, stop }: { start: JulianDate; stop: JulianDate; }
+  ) => {
     const resource = await IonResource.fromAssetId(2729062);
     const ISSEntity = viewer.entities.add({
-      availability: new TimeIntervalCollection([new TimeInterval({ start: start, stop: stop })]),
+      availability: new TimeIntervalCollection(
+        [new TimeInterval({ start: JulianDate.now(), stop: JulianDate.addDays(JulianDate.now(), 1, new JulianDate()) })]
+      ),
       position: positionProperty,
+      point: { pixelSize: 5, color: Color.RED, distanceDisplayCondition: new DistanceDisplayCondition(100000), },
       model: { uri: resource },
     });
 
@@ -26,49 +29,21 @@ export default function ISSTrajectory({ viewer }: { viewer: Viewer }) {
   }, []);
 
   useEffect(() => {
-    const timeStepInSeconds = 4 * 60;
-    const totalSeconds = timeStepInSeconds * (issTrajectory.features.length - 1);
-    const start = JulianDate.fromIso8601(issTrajectory.features[0].properties.timestamp);
-    const stop = JulianDate.addSeconds(start, totalSeconds, new JulianDate());
-    viewer.clock.startTime = start.clone();
-    viewer.clock.stopTime = stop.clone();
-    viewer.clock.currentTime = start.clone();
-    viewer.timeline.zoomTo(start, stop);
-    viewer.clock.multiplier = 30;
-    // Start playing the scene.
-    viewer.clock.shouldAnimate = true;
+    load3DModel(viewer, positionProperty);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer]);
 
-    const positionProperty = new SampledPositionProperty();
-    const positions: Cartesian3[] = [];
-
-    // const entities = 
-    issTrajectory.features.forEach((feat, i) => {
-      const time = JulianDate.addSeconds(start, i * timeStepInSeconds, new JulianDate());
-
-      const position = Cartesian3.fromDegrees(feat.geometry.coordinates[0], feat.geometry.coordinates[1], feat.geometry.coordinates[2]);
-
+  useEffect(() => {
+    if (error || !data) return;
+    data.forEach(locationData => {
+      const date = new Date(locationData.timestamp * 1000);
+      const time = JulianDate.fromDate(date);
+      const position = Cartesian3.fromDegrees(locationData.longitude, locationData.latitude, locationData.altitude * 1000);
       positionProperty.addSample(time, position);
-
-      positions.push(position);
-
-      // return viewer.entities.add({
-      //   description: `Location: (${feat.geometry.coordinates[0]}, ${feat.geometry.coordinates[1]}, ${feat.geometry.coordinates[2]})`,
-      //   position,
-      //   point: { pixelSize: 2, color: Color.RED }
-      // })
     });
-
-    // viewer.entities.add({
-    //   polyline: {
-    //     positions,
-    //     material: new ColorMaterialProperty(Color.RED),
-    //   }
-    // });
-
-    load3DModel(viewer, positionProperty, { start, stop });
-
-    // console.log(entities);
-  }, [viewer, load3DModel]);
+    viewer.clock.shouldAnimate = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, error, loading, positionProperty]);
 
   useEffect(() => {
     if (!issEntity) return;
